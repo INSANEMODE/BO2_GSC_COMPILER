@@ -215,7 +215,6 @@ namespace Compiler
             if (animTreesNodeIndex != -1)
             {
                 _animTree.NamePtr = GetStringPosByName(Tree.Root.ChildNodes[animTreesNodeIndex].FindTokenAndGetValue());
-                _animTree.Unknown = 2;
                 file.NumOfAnimTrees = 1;
             }
             file.CodeSectionStart = CompiledPub.Count;
@@ -242,24 +241,30 @@ namespace Compiler
             file.Size2 = CompiledPub.Count;
             file.Header = new byte[] { 0x80, 0x47, 0x53, 0x43, 0x0D, 0x0A, 0x00, 0x06 };
             file.Name = 0x40;
-//             Directory.CreateDirectory(Path.GetDirectoryName(Filename) + @"\Compiled\");
-//             using (var writer = File.Create(Path.GetDirectoryName(Filename) + @"\Compiled\" + Path.GetFileName(Filename)))
-//             {
-//                 writer.Write(CompiledPub.ToArray(), 0, CompiledPub.Count);
-//             }
+            Directory.CreateDirectory(Path.GetDirectoryName(Filename) + @"\Compiled\");
+            using (var writer = File.Create(Path.GetDirectoryName(Filename) + @"\Compiled\" + Path.GetFileName(Filename)))
+            {
+                writer.Write(CompiledPub.ToArray(), 0, CompiledPub.Count);
+            }
             return true;
         }
 
         private void WriteAnimTreesToFile()
         {
             AddUshort(_animTree.NamePtr);
-            AddUshort(_animTree.Unknown);
-            AddUshort(_animTree.NumOfRefs);
-            if (_animTree.NumOfRefs == 0)
-                return;
+            AddUshort((ushort)_animTree.Refs.Count);
+            AddUshort((ushort)_animTree.AnimReferences.Count);
+            AddUshort(0); // PADDING
+
             foreach (int _ref in _animTree.Refs)
             {
                 AddInt(_ref);
+            }
+
+            foreach (var _ref in _animTree.AnimReferences)
+            {
+                AddUInt(_ref.name);
+                AddUInt(_ref.offset);
             }
         }
 
@@ -327,9 +332,13 @@ namespace Compiler
 
         private void EmitGetAnimation(ParseTreeNode node)
         {
+            var animRef = new AnimReference();
             EmitOpcode(OP_GetAnimation);
             SetAlignedDword();
-            AddInt(GetStringPosByName(node.ChildNodes[1].FindTokenAndGetValue()));
+            animRef.offset = (uint)CompiledPub.Count;
+            AddInt(-1);
+            animRef.name = GetStringPosByName(node.ChildNodes[1].FindTokenAndGetValue());
+            _animTree.AnimReferences.Add(animRef);
         }
 
         private void ScriptCompile(ParseTreeNode Node, bool _ref = false, bool waitTillVar = false)
@@ -365,7 +374,6 @@ namespace Compiler
                     break;
 
                 case "animTree":
-                    _animTree.NumOfRefs++;
                     EmitOpcode(OP_GetInteger);
                     SetAlignedDword();
                     _animTree.Refs.Add(CompiledPub.Count);
@@ -1609,12 +1617,17 @@ namespace Compiler
             }
         }
 
+        public struct AnimReference
+        {
+            public uint name;
+            public uint offset;
+        }
+
         public class AnimTree
         {
             public ushort NamePtr { get; set; }
-            public ushort Unknown { get; set; }
-            public ushort NumOfRefs { get; set; }
             public List<int> Refs { get; set; }
+            public List<AnimReference> AnimReferences;
         }
 
         public class Call
