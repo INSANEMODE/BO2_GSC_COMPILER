@@ -10,6 +10,20 @@ using Irony.Parsing;
 
 namespace Compiler
 {
+    public class GSCCompiler
+    {
+        public static byte[] Compile(string rel, string source)
+        {
+            var grammar = new GSCGrammar();
+            var parser = new Parser(grammar);
+            var compiler = new ScriptCompiler(parser.Parse(source));
+
+            if (!compiler.Init(rel, true))
+                return null;
+
+            return compiler.Compiled;
+        }
+    }
     class Program
     {
         static int Main(string[] args)
@@ -40,9 +54,9 @@ namespace Compiler
         {
             var grammar = new GSCGrammar();
             var parser = new Parser(grammar);
-            var compiler = new ScriptCompiler(parser.Parse(File.ReadAllText(source)), dest);
+            var compiler = new ScriptCompiler(parser.Parse(File.ReadAllText(source)));
 
-            int result = (compiler.Init(rel) ? 1 : 0);
+            int result = (compiler.Init(rel, true) ? 1 : 0);
 
             using (var writer = File.Create(dest))
             {
@@ -60,7 +74,7 @@ namespace Compiler
 
             var grammar = new GSCGrammar();
             var parser = new Parser(grammar);
-            var compiler = new ScriptCompiler(parser.Parse(File.ReadAllText(file)), dest);
+            var compiler = new ScriptCompiler(parser.Parse(File.ReadAllText(file)));
 
             if (compiler.Init(dest.Substring(0, dest.IndexOf(".")), true))
             {

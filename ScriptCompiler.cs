@@ -22,7 +22,6 @@ namespace Compiler
         private readonly List<Key> ArrayKeys = new List<Key>();
         private byte numofForeachStatements;
         private byte numofParams;
-        private readonly string Filename;
         private readonly AnimTree _animTree = new AnimTree();
         private readonly List<int> LoopsStart = new List<int>();
         private readonly List<OP> ContinueHistory = new List<OP>();
@@ -33,11 +32,10 @@ namespace Compiler
             get { return CompiledPub.ToArray(); }
         }
 
-        public ScriptCompiler(ParseTree tree, string path)
+        public ScriptCompiler(ParseTree tree)
         {
             CompiledPub.Clear();
             Tree = tree;
-            Filename = path.Replace(".txt", ".gsc");
         }
 
         private void SetAlignedWord(byte offset = 0)
@@ -241,11 +239,8 @@ namespace Compiler
             file.Size2 = CompiledPub.Count;
             file.Header = new byte[] { 0x80, 0x47, 0x53, 0x43, 0x0D, 0x0A, 0x00, 0x06 };
             file.Name = 0x40;
-            Directory.CreateDirectory(Path.GetDirectoryName(Filename) + @"\Compiled\");
-            using (var writer = File.Create(Path.GetDirectoryName(Filename) + @"\Compiled\" + Path.GetFileName(Filename)))
-            {
-                writer.Write(CompiledPub.ToArray(), 0, CompiledPub.Count);
-            }
+
+
             return true;
         }
 
@@ -335,9 +330,9 @@ namespace Compiler
             var animRef = new AnimReference();
             EmitOpcode(OP_GetAnimation);
             SetAlignedDword();
-            animRef.offset = (uint)CompiledPub.Count;
-            AddInt(-1);
             animRef.name = GetStringPosByName(node.ChildNodes[1].FindTokenAndGetValue());
+            animRef.offset = (uint)CompiledPub.Count;
+            AddInt((int)animRef.name);
             _animTree.AnimReferences.Add(animRef);
         }
 
@@ -1216,6 +1211,7 @@ namespace Compiler
                 }
             }
             byte flag = 0;
+            int num = ScriptCompiler.CompiledPub.Count - 4;
             switch (callNode.Term.Name)
             {
                 case "scriptFunctionCall":
@@ -1251,6 +1247,8 @@ namespace Compiler
             AddRefToCall(name, numofParams, flag, ptrToInclude);
             SetAlignedDword(1);
             AddInt(GetStringPosByName(name));
+            //if (name.ToLower().Equals("scriptmodelsuseanimtree") || name.ToLower().Equals("useanimtree"))
+            //    _animTree.Refs.Add(num);
             if (decTop)
             {
                 EmitOpcode(OP_DecTop);
@@ -1625,9 +1623,10 @@ namespace Compiler
 
         public class AnimTree
         {
+
             public ushort NamePtr { get; set; }
-            public List<int> Refs { get; set; }
-            public List<AnimReference> AnimReferences;
+            public List<int> Refs { get; set; } = new List<int>();
+            public List<AnimReference> AnimReferences { get; set; }  = new List<AnimReference>();
         }
 
         public class Call
